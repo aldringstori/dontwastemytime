@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Set LLM Endpoint</title>
+  <link rel="stylesheet" href="popup.css">
+  <style>
+    #log-container {
+      margin-top: 20px;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .log-entry {
+      margin-bottom: 5px;
+    }
+    .log-info {
+      color: #0066cc;
+    }
+    .log-error {
+      color: #cc0000;
+    }
+    .log-success {
+      color: #006600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h3>Set LLM Endpoint</h3>
+    <label for="current-endpoint">Current Endpoint:</label>
+    <p id="current-endpoint" class="current-endpoint" style="color: #00FFD0FF;"></p>
+    <label for="preset">Preset:</label>
+    <select id="preset" class="input-box">
+      <option value="http://localhost:8080/api/generate">LLM Studio - http://localhost:8080/api/generate</option>
+      <option value="http://localhost:11434/api/generate">Ollama - http://localhost:11434/api/generate</option>
+    </select>
+    <label for="endpoint">Custom Endpoint:</label>
+    <input type="text" id="endpoint" placeholder="Enter custom endpoint" class="input-box">
+    <button id="save-btn">Save</button>
+    <button id="test-btn">Test Endpoint</button>
+    <p class="success-message" id="success-message">
+      <span class="anticon anticon-check-circle" style="color: green; margin-right: 5px;"></span> Endpoint saved successfully!
+    </p>
+    <p class="error-message" id="error-message">
+      <span class="anticon anticon-exclamation-circle" style="color: red; margin-right: 5px;"></span> Please enter a valid endpoint!
+    </p>
+    <div id="log-container">
+      <h4>Logs:</h4>
+      <div id="log-entries"></div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/antd/4.16.13/antd.min.js"></script>
+</body>
+</html>

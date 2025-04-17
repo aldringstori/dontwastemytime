@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');
+
+body, html, div, p, button {
+  font-family: 'DM Sans', sans-serif !important;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+  background-color: #f9f9f9;
+}
+
+.container {
+  background-color: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  width: 300px; /* Adjust width as needed */
+  text-align: center;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+
+.current-endpoint {
+  font-weight: bold;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.input-box {
+  width: 90%; /* Adjust width as needed */
+  padding: 8px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+button {
+  width: 90%;
+  padding: 10px;
+  background-color: #2E62FF;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  font-size: 14px;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+.success-message, .error-message {
+  display: none;
+  font-size: 14px;
+  margin-top: 10px;
+}
