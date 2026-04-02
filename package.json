@@ -6,7 +6,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
-  "name": "free-yt-summarizer",
+  "name": "dontwastemytime",
   "version": "1.0.0",
   "description": "Created by Aldrin Gustavo Stori\r Inspired by\r <br>\r <https://github.com/ayaansh-roy/llm_chrome_ext_summerizer>\r <br>\r <https://github.com/xingyuqiu2/youtube-translator-summarizer-extension>",
   "main": "background.js",
@@ -15,5 +15,8 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "webpack-cli": "^7.0.2"
+  }
 }

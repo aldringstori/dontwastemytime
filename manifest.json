@@ -1,5 +1,5 @@
 {
-  "name": "Free YT Summarizer",
+  "name": "dontwastemytime",
   "version": "1.0.0",
   "description": "Free Youtube video summarizer with local LLM",
   "manifest_version": 3,
@@ -42,7 +42,7 @@
       "24": "src/assets/ext-icon.png",
       "32": "src/assets/ext-icon.png"
     },
-    "default_title": "Free YT Summarizer"
+    "default_title": "dontwastemytime"
   },
   "icons": {
     "16": "src/assets/ext-icon.png",
