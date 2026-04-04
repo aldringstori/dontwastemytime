@@ -1,105 +1,248 @@
-// src/ui.js (content script)
-let isLoading = false;
+// src/ui.js — content script
 
+const CARD_ID = 'dwmt-card';
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let isLoading = false;
+let sidebarObserver = null;
+let theaterObserver = null;
+let initObserver = null;
+
+// ─── Guards ───────────────────────────────────────────────────────────────────
+const isWatchPage  = () => window.location.pathname === '/watch';
+const isTheater    = () => !!document.querySelector('ytd-watch-flexy[theater]');
+const cardExists   = () => !!document.getElementById(CARD_ID);
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 const setLoading = state => {
   isLoading = state;
-  const btn = document.getElementById('summary-btn');
+  const btn = document.getElementById('dwmt-summary-btn');
   if (!btn) return;
   btn.disabled = state;
-  btn.textContent = state ? 'Loading...' : 'Summary';
+  btn.textContent = state ? 'Loading…' : 'Summary';
 };
 
 const pauseVideo = () => {
-  const video = document.querySelector('video');
-  if (video && !video.paused) video.pause();
+  const v = document.querySelector('video');
+  if (v && !v.paused) v.pause();
 };
 
 const getTimeSaved = () => {
-  const video = document.querySelector('video');
-  if (!video) return null;
-  const saved = Math.max(0, Math.floor(video.duration - video.currentTime));
+  const v = document.querySelector('video');
+  if (!v) return null;
+  const saved = Math.max(0, Math.floor(v.duration - v.currentTime));
   if (!saved || isNaN(saved)) return null;
   const h = Math.floor(saved / 3600);
   const m = Math.floor((saved % 3600) / 60);
   const s = saved % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  return `${m}:${String(s).padStart(2, '0')}`;
+  return h > 0
+    ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+    : `${m}:${String(s).padStart(2,'0')}`;
 };
 
-const injectUI = () => {
+// ─── Card markup ──────────────────────────────────────────────────────────────
 
-  const ext = document.createElement('div');
-  ext.id = 'extension-container';
-  ext.innerHTML = `
-    <div id="header-container">
-      <img src="${chrome.runtime.getURL('src/assets/ext-icon.png')}" class="extension-icon">
-      <p class="extension-title">dontwastemytime</p>
+// chrome.runtime.getURL throws "Extension context invalidated" if the extension
+// was reloaded without refreshing the tab. Guard so the rest of the script
+// keeps working (icon just won't show until the tab is refreshed).
+const getIconUrl = () => {
+  try { return chrome.runtime.getURL('src/assets/ext-icon.png'); } catch { return ''; }
+};
+
+const buildCard = () => {
+  const card = document.createElement('div');
+  card.id = CARD_ID;
+  const iconUrl = getIconUrl();
+  card.innerHTML = `
+    <div class="dwmt-header">
+      ${iconUrl ? `<img src="${iconUrl}" class="dwmt-icon" alt="">` : ''}
+      <span class="dwmt-title">dontwastemytime</span>
     </div>
-    <div id="button-container">
-      <button id="stopwastingmytime-btn">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right:6px;flex-shrink:0"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-        stopwastingmytime
-      </button>
-      <button id="summary-btn">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+
+    <button id="dwmt-stop-btn" class="dwmt-btn dwmt-btn-stop">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <rect x="4" y="4" width="16" height="16" rx="2"/>
+      </svg>
+      stopwastingmytime
+    </button>
+
+    <div class="dwmt-grid">
+      <button id="dwmt-summary-btn" class="dwmt-btn dwmt-btn-blue">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
         Summary
       </button>
-      <button id="transcription-btn">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;flex-shrink:0"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
+      <button id="dwmt-transcript-btn" class="dwmt-btn dwmt-btn-blue">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="17" y1="10" x2="3" y2="10"/>
+          <line x1="21" y1="6"  x2="3" y2="6"/>
+          <line x1="21" y1="14" x2="3" y2="14"/>
+          <line x1="17" y1="18" x2="3" y2="18"/>
+        </svg>
         Transcription
       </button>
-      <button id="copy-btn">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;flex-shrink:0"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      <button id="dwmt-copy-btn" class="dwmt-btn dwmt-btn-blue">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="9" y="9" width="13" height="13" rx="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
         Copy
       </button>
-      <button id="download-btn">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <button id="dwmt-download-btn" class="dwmt-btn dwmt-btn-blue">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
         Download
       </button>
     </div>
-    <div id="time-saved-msg"></div>
-    <div id="summary-container"></div>
-  `;
-  setTimeout(() => {
-    const sec = document.getElementById('secondary');
-    const inner = document.getElementById('secondary-inner');
-    if (sec && inner && sec.contains(inner)) sec.insertBefore(ext, inner);
-    else document.body.appendChild(ext);
-  }, 9000);
 
-  document.body.addEventListener('click', e => {
-    if (e.target.id === 'stopwastingmytime-btn') handleStopWastingMyTime();
-    if (e.target.id === 'summary-btn') handleSummary();
-    if (e.target.id === 'transcription-btn') handleTranscription();
-    if (e.target.id === 'copy-btn') handleCopy();
-    if (e.target.id === 'download-btn') handleDownload();
+    <div id="dwmt-time-msg"  class="dwmt-time-msg"></div>
+    <div id="dwmt-output"    class="dwmt-output"></div>
+  `;
+  return card;
+};
+
+// ─── Insertion ────────────────────────────────────────────────────────────────
+
+// Finds the first ytd-compact-video-renderer inside the secondary results column.
+// Tries selectors from most-specific to least-specific — covers YouTube A/B variants
+// where the container ID or element name may differ.
+const getFirstVideoInSidebar = () =>
+  document.querySelector('ytd-watch-next-secondary-results-renderer ytd-compact-video-renderer') ||
+  document.querySelector('#secondary ytd-compact-video-renderer')  ||
+  document.querySelector('#secondary-inner ytd-compact-video-renderer') ||
+  document.querySelector('#related ytd-compact-video-renderer');
+
+const insertCard = () => {
+  if (!isWatchPage() || isTheater()) return false;
+
+  const firstVideo = getFirstVideoInSidebar();
+  if (!firstVideo) return false;
+
+  const container = firstVideo.parentElement;
+  if (!container) return false;
+
+  // Already in the right position — nothing to do.
+  const existing = document.getElementById(CARD_ID);
+  if (existing && firstVideo.previousElementSibling === existing) return true;
+
+  // Remove stale instance then re-insert before the first real video.
+  existing?.remove();
+  container.insertBefore(buildCard(), firstVideo);
+  return true;
+};
+
+const removeCard = () => document.getElementById(CARD_ID)?.remove();
+
+// ─── Observers ────────────────────────────────────────────────────────────────
+
+// Watches the video list container for mutations — re-positions card if YouTube
+// re-renders the recommendations list (e.g. chip filter click).
+const startSidebarObserver = () => {
+  sidebarObserver?.disconnect();
+  const container = getFirstVideoInSidebar()?.parentElement;
+  if (!container) return;
+
+  sidebarObserver = new MutationObserver(() => {
+    if (!isWatchPage() || isTheater()) return;
+    const firstVideo = container.querySelector('ytd-compact-video-renderer');
+    if (!firstVideo) return;
+    const card = document.getElementById(CARD_ID);
+    if (!card || firstVideo.previousElementSibling !== card) insertCard();
   });
 
-  chrome.runtime.onMessage.addListener(msg => {
-    if (msg.action === 'loadSummary') {
-      displaySummary(msg.summary);
-      setLoading(false);
+  sidebarObserver.observe(container, { childList: true });
+};
+
+// Watches ytd-watch-flexy[theater] — hides card in theater, restores on exit.
+const startTheaterObserver = () => {
+  theaterObserver?.disconnect();
+  const flexy = document.querySelector('ytd-watch-flexy');
+  if (!flexy) return;
+
+  theaterObserver = new MutationObserver(() => {
+    if (isTheater()) {
+      removeCard();
+    } else {
+      // Container may have re-rendered after theater exit — re-attach sidebar observer too.
+      if (insertCard()) startSidebarObserver();
     }
   });
+
+  theaterObserver.observe(flexy, { attributes: true, attributeFilter: ['theater'] });
 };
 
-const expand = () => {
-  const btn = document.querySelector('tp-yt-paper-button#expand');
-  if (btn) btn.click();
+// Bootstraps everything: waits for the sidebar to be populated, then kicks off
+// the sidebar + theater observers.
+const init = () => {
+  initObserver?.disconnect();
+  theaterObserver?.disconnect();
+  sidebarObserver?.disconnect();
+
+  if (!isWatchPage()) return;
+
+  const onReady = () => {
+    startSidebarObserver();
+    startTheaterObserver();
+  };
+
+  // Attempt immediate insertion (works on hard refresh when content is already rendered).
+  if (insertCard()) { onReady(); return; }
+
+  // Primary: MutationObserver on document.body subtree — fires the moment
+  // ytd-compact-video-renderer appears anywhere under the secondary column.
+  initObserver = new MutationObserver(() => {
+    if (!isWatchPage()) { initObserver.disconnect(); return; }
+    if (insertCard()) { initObserver.disconnect(); onReady(); }
+  });
+  initObserver.observe(document.body, { childList: true, subtree: true });
+
+  // Fallback: poll every 500 ms for up to 20 s in case the observer misses a batch.
+  let attempts = 0;
+  const poll = setInterval(() => {
+    attempts++;
+    if (insertCard()) {
+      clearInterval(poll);
+      initObserver?.disconnect();
+      onReady();
+      return;
+    }
+    if (attempts >= 40) {
+      clearInterval(poll);
+      initObserver?.disconnect();
+      // Last-resort: insert before #secondary-inner (above chips but always visible)
+      if (!document.getElementById(CARD_ID) && isWatchPage() && !isTheater()) {
+        const sec   = document.getElementById('secondary');
+        const inner = document.getElementById('secondary-inner');
+        if (sec && inner && sec.contains(inner)) {
+          sec.insertBefore(buildCard(), inner);
+          onReady();
+        }
+      }
+    }
+  }, 500);
 };
 
-const clickTrans = () => {
-  const btn = document.querySelector('.yt-spec-button-shape-next--call-to-action');
-  if (btn) btn.click();
-};
+// ─── Feature handlers ─────────────────────────────────────────────────────────
 
-const getText = () => {
-  const segs = document.querySelectorAll('ytd-transcript-segment-renderer .segment-text');
-  return Array.from(segs).map(s => s.innerText).join(' ');
-};
+const expand = () => document.querySelector('tp-yt-paper-button#expand')?.click();
 
-const displaySummary = txt => {
-  const c = document.getElementById('summary-container');
+const clickTrans = () =>
+  document.querySelector('.yt-spec-button-shape-next--call-to-action')?.click();
+
+const getText = () =>
+  Array.from(document.querySelectorAll('ytd-transcript-segment-renderer .segment-text'))
+    .map(s => s.innerText).join(' ');
+
+const displayOutput = txt => {
+  const c = document.getElementById('dwmt-output');
+  if (!c) return;
   c.innerHTML = '';
   txt.split('\n').forEach(p => {
     const el = document.createElement('p');
@@ -114,8 +257,7 @@ const handleSummary = () => {
   setTimeout(() => {
     clickTrans();
     setTimeout(() => {
-      const txt = getText();
-      chrome.runtime.sendMessage({ action: 'fetchSummary', prompt: txt });
+      chrome.runtime.sendMessage({ action: 'fetchSummary', prompt: getText() });
     }, 3000);
   }, 3000);
 };
@@ -123,19 +265,16 @@ const handleSummary = () => {
 const handleTranscription = () => {
   expand();
   clickTrans();
-  setTimeout(() => {
-    displaySummary(getText());
-  }, 4000);
+  setTimeout(() => displayOutput(getText()), 4000);
 };
 
 const handleCopy = () => {
-  const txt = document.getElementById('summary-container').innerText;
-  navigator.clipboard.writeText(txt);
+  const txt = document.getElementById('dwmt-output')?.innerText;
+  if (txt) navigator.clipboard.writeText(txt);
 };
 
 const handleDownload = () => {
-  const txt = getText();
-  const blob = new Blob([txt], { type: 'text/plain' });
+  const blob = new Blob([getText()], { type: 'text/plain' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `${document.title}.txt`;
@@ -143,56 +282,67 @@ const handleDownload = () => {
 };
 
 const sendChatMessage = (delay = 1000) => {
-  const sendMessage = (attempts = 0) => {
+  const send = (attempts = 0) => {
     const textarea = document.querySelector('yt-chat-input-view-model textarea');
     if (textarea) {
-      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-      nativeInputValueSetter.call(textarea, 'O vídeo fala sobre qual assunto? Após responder isso em uma linha, resuma em até 5 bullet points curtos o que realmente importa neste vídeo. Sem introdução, sem enrolação.');
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+      setter.call(textarea, 'O vídeo fala sobre qual assunto? Após responder isso em uma linha, resuma em até 5 bullet points curtos o que realmente importa neste vídeo. Sem introdução, sem enrolação.');
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
       setTimeout(() => {
         textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
       }, 500);
     } else if (attempts < 20) {
-      setTimeout(() => sendMessage(attempts + 1), 500);
+      setTimeout(() => send(attempts + 1), 500);
     }
   };
-  setTimeout(() => sendMessage(), delay);
+  setTimeout(() => send(), delay);
 };
 
 const clickAskItem = () => {
-  // Step 2: click the "Ask" menu item (identified by the star SVG path)
-  const menuItems = document.querySelectorAll('tp-yt-paper-item');
-  const askItem = Array.from(menuItems).find(el => {
-    const path = el.querySelector('path');
-    return path && path.getAttribute('d') && path.getAttribute('d').includes('M480-80q0-83');
+  const askItem = Array.from(document.querySelectorAll('tp-yt-paper-item')).find(el => {
+    const d = el.querySelector('path')?.getAttribute('d') ?? '';
+    return d.includes('M480-80q0-83');
   });
-  if (askItem) askItem.click();
+  askItem?.click();
   sendChatMessage(1000);
-};
-
-const showTimeSavedMsg = () => {
-  const saved = getTimeSaved();
-  const el = document.getElementById('time-saved-msg');
-  if (!el) return;
-  if (saved) {
-    el.textContent = `nice, you saved ${saved} `;
-  } else {
-    el.textContent = '';
-  }
 };
 
 const handleStopWastingMyTime = () => {
   pauseVideo();
-  showTimeSavedMsg();
-  // Try the direct "Perguntar" button visible in full desktop view
+  const saved = getTimeSaved();
+  const el = document.getElementById('dwmt-time-msg');
+  if (el) el.textContent = saved ? `nice, you saved ${saved}` : '';
+
   const perguntarBtn = document.querySelector('button[aria-label="Perguntar"]');
-  if (perguntarBtn) {
-    perguntarBtn.click();
-    sendChatMessage(1000);
-  } else {
-    // Compact/mobile view: button is behind a menu item (tp-yt-paper-item)
-    clickAskItem();
-  }
+  if (perguntarBtn) { perguntarBtn.click(); sendChatMessage(1000); }
+  else clickAskItem();
 };
 
-injectUI();
+// ─── Event delegation (set up once — survives card re-injection) ──────────────
+
+document.body.addEventListener('click', e => {
+  // Use .closest('button') so clicks on child SVG/text nodes still resolve.
+  const id = e.target.closest('button')?.id;
+  if (!id) return;
+  if (id === 'dwmt-stop-btn')       handleStopWastingMyTime();
+  else if (id === 'dwmt-summary-btn')    handleSummary();
+  else if (id === 'dwmt-transcript-btn') handleTranscription();
+  else if (id === 'dwmt-copy-btn')       handleCopy();
+  else if (id === 'dwmt-download-btn')   handleDownload();
+});
+
+chrome.runtime.onMessage.addListener(msg => {
+  if (msg.action === 'loadSummary') {
+    displayOutput(msg.summary);
+    setLoading(false);
+  }
+});
+
+// Re-run on YouTube SPA navigation (video-to-video without full page reload).
+document.addEventListener('yt-navigate-finish', () => {
+  if (isWatchPage()) init();
+  else removeCard();
+});
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+init();

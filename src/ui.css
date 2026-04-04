@@ -1,113 +1,107 @@
+/* ── dontwastemytime — sidebar card ───────────────────────────────────────────
+   Injected as the first child of ytd-watch-next-secondary-results-renderer #items,
+   before ytd-compact-video-renderer elements. width:100% matches those siblings
+   automatically in both normal and wide-window layouts.
+   All selectors are prefixed .dwmt- to avoid collision with YouTube's own styles.
+   ──────────────────────────────────────────────────────────────────────────── */
+
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');
 
-body, html, div, p, button {
-  font-family: 'DM Sans', sans-serif !important;
-}
-
-#extension-container {
-  background-color: #faf5f5;
-  padding: 6px 14px;
+/* Scope font override to our card only — never touch YouTube's elements */
+#dwmt-card,
+#dwmt-card * {
+  font-family: 'DM Sans', 'Roboto', Arial, sans-serif !important;
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  align-items: center;
-  border-radius: 14px;
-  border: 1px solid #ddd;
-  width: 340px;
-  height: auto;
+}
+
+/* ── Card shell ──────────────────────────────────────────────────────────────
+   display:block + width:100% mirrors ytd-compact-video-renderer's box model.
+   The parent #items container determines the actual pixel width in every mode.
+   margin-bottom separates it from the first real video below.               */
+#dwmt-card {
+  display: block;
+  width: 100%;
+  background: #faf5f5;
+  border: 1px solid #e2e2e2;
+  border-radius: 12px;
+  padding: 10px 12px 8px;
+  margin-bottom: 8px;
   overflow: hidden;
-  margin: 0 auto;
-  margin-top: 12px;
 }
 
-#header-container {
-  height: auto;
-  min-height: 24px;
-  padding: 0;
-  align-items: center;
+/* ── Header row ──────────────────────────────────────────────────────────── */
+.dwmt-header {
   display: flex;
-  flex-direction: row;
+  align-items: center;
   justify-content: center;
-  width: 100%;
-  gap: 4px;
-}
-
-#button-container {
-  display: grid;
-  grid-template-columns: auto auto;
   gap: 5px;
-  margin-top: 4px;
-  justify-content: center;
-  width: 100%;
+  margin-bottom: 8px;
 }
 
-.extension-icon {
+.dwmt-icon {
   width: 16px;
   height: 16px;
-  margin-right: 4px;
   flex-shrink: 0;
 }
 
-.extension-title {
+.dwmt-title {
   font-size: 12px;
-  font-weight: bold;
-  padding: 0;
-  margin: 0;
+  font-weight: 700;
+  color: #111;
   white-space: nowrap;
 }
 
-#stopwastingmytime-btn,
-#summary-btn,
-#transcription-btn,
-#copy-btn,
-#download-btn {
-  background-color: #2E62FF;
-  color: #fff;
-  border: none;
-  cursor: pointer;
-  border-radius: 7px;
-  box-shadow: 0 2px 0 rgba(109, 53, 253, 0.09);
-  transition: background-color 0.3s ease;
-  font-size: 12px;
+/* ── Shared button base ──────────────────────────────────────────────────── */
+.dwmt-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 28px;
-  padding: 0 10px;
-  width: fit-content;
+  gap: 5px;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
   white-space: nowrap;
+  height: 30px;
+  padding: 0 12px;
+  transition: background-color 0.18s ease, color 0.18s ease;
+  color: #fff;
 }
 
-#stopwastingmytime-btn {
-  background-color: #E02020;
-  grid-column: 1 / -1;
-  justify-self: center;
+/* ── Main stop button — full width ───────────────────────────────────────── */
+.dwmt-btn-stop {
+  width: 100%;
+  background: #E02020;
+  margin-bottom: 6px;
 }
 
-#stopwastingmytime-btn:hover {
-  background-color: #ff4444;
+.dwmt-btn-stop:hover  { background: #ff3a3a; }
+.dwmt-btn-stop:active { background: #b71a1a; }
+
+/* ── 2 × 2 grid for the four secondary buttons ───────────────────────────── */
+.dwmt-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  width: 100%;
 }
 
-#summary-btn:hover,
-#transcription-btn:hover,
-#copy-btn:hover,
-#download-btn:hover {
-  background-color: #00FFD0;
+.dwmt-btn-blue {
+  background: #2E62FF;
+  width: 100%;
 }
 
-#stopwastingmytime-btn img,
-#summary-btn img,
-#transcription-btn img,
-#copy-btn img,
-#download-btn img {
-  margin-right: 4px;
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
+.dwmt-btn-blue:hover  { background: #1a4fd6; }
+.dwmt-btn-blue:active { background: #0f36a3; }
+
+.dwmt-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
-#time-saved-msg {
+/* ── Time-saved feedback line ─────────────────────────────────────────────── */
+.dwmt-time-msg {
   margin-top: 6px;
   font-size: 12px;
   font-weight: 500;
@@ -116,33 +110,19 @@ body, html, div, p, button {
   min-height: 0;
 }
 
-#summary-container {
-  margin-top: 14px;
+/* ── Summary / transcript output ─────────────────────────────────────────── */
+.dwmt-output {
+  margin-top: 10px;
   width: 100%;
-  text-align: center;
-  font-size: clamp(12px, 1.5vw, 14px);
+  font-size: 13px;
+  line-height: 1.5;
+  color: #222;
 }
 
-.loading-icon {
-  animation: spin 1s linear infinite;
-  color: #fff;
-  font-size: 14px;
-  width: 14px;
-  height: 14px;
+.dwmt-output p {
+  margin: 0 0 6px;
 }
 
-@keyframes spin {
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-@media (max-width: 480px) {
-  #button-container {
-    grid-template-columns: auto auto;
-  }
-
-  .extension-title {
-    font-size: 13px;
-  }
+.dwmt-output p:last-child {
+  margin-bottom: 0;
 }
