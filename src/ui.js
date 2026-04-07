@@ -194,8 +194,8 @@ const startTheaterObserver = () => {
   theaterObserver.observe(flexy, { attributes: true, attributeFilter: ['theater'] });
 };
 
-// Bootstraps everything: waits for the sidebar to be populated, then kicks off
-// the sidebar + theater observers.
+// Bootstraps everything: waits for the relevant container to be populated,
+// then kicks off the sidebar + theater observers.
 const init = () => {
   initObserver?.disconnect();
   theaterObserver?.disconnect();
@@ -204,15 +204,16 @@ const init = () => {
   if (!isWatchPage()) return;
 
   const onReady = () => {
-    startSidebarObserver();
+    // In theater mode the sidebar isn't populated — skip the sidebar observer.
+    if (!isTheater()) startSidebarObserver();
     startTheaterObserver();
   };
 
   // Attempt immediate insertion (works on hard refresh when content is already rendered).
   if (insertCard()) { onReady(); return; }
 
-  // Primary: MutationObserver on document.body subtree — fires the moment
-  // ytd-compact-video-renderer appears anywhere under the secondary column.
+  // Primary: MutationObserver on document.body subtree — fires on any DOM change.
+  // insertCard() routes to insertCardTheater() automatically when in theater mode.
   initObserver = new MutationObserver(() => {
     if (!isWatchPage()) { initObserver.disconnect(); return; }
     if (insertCard()) { initObserver.disconnect(); onReady(); }
@@ -232,8 +233,13 @@ const init = () => {
     if (attempts >= 40) {
       clearInterval(poll);
       initObserver?.disconnect();
-      // Last-resort: insert before #secondary-inner (above chips but always visible)
-      if (!document.getElementById(CARD_ID) && isWatchPage() && !isTheater()) {
+      if (document.getElementById(CARD_ID) || !isWatchPage()) return;
+      if (isTheater()) {
+        // Last-resort in theater mode: force into #below.
+        const below = document.getElementById('below');
+        if (below) { below.insertBefore(buildCard(), below.firstElementChild); onReady(); }
+      } else {
+        // Last-resort in normal mode: insert above #secondary-inner.
         const sec   = document.getElementById('secondary');
         const inner = document.getElementById('secondary-inner');
         if (sec && inner && sec.contains(inner)) {
