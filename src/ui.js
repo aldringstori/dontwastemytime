@@ -119,8 +119,22 @@ const getFirstVideoInSidebar = () =>
   document.querySelector('#secondary-inner ytd-compact-video-renderer') ||
   document.querySelector('#related ytd-compact-video-renderer');
 
+// In theater mode the sidebar is hidden — attach card to the top of #below instead.
+const insertCardTheater = () => {
+  const below = document.getElementById('below');
+  if (!below) return false;
+
+  const existing = document.getElementById(CARD_ID);
+  if (existing && existing.parentElement === below && below.firstElementChild === existing) return true;
+
+  existing?.remove();
+  below.insertBefore(buildCard(), below.firstElementChild);
+  return true;
+};
+
 const insertCard = () => {
-  if (!isWatchPage() || isTheater()) return false;
+  if (!isWatchPage()) return false;
+  if (isTheater()) return insertCardTheater();
 
   const firstVideo = getFirstVideoInSidebar();
   if (!firstVideo) return false;
@@ -150,7 +164,7 @@ const startSidebarObserver = () => {
   if (!container) return;
 
   sidebarObserver = new MutationObserver(() => {
-    if (!isWatchPage() || isTheater()) return;
+    if (!isWatchPage() || isTheater()) return; // theater has its own layout
     const firstVideo = container.querySelector('ytd-compact-video-renderer');
     if (!firstVideo) return;
     const card = document.getElementById(CARD_ID);
@@ -160,7 +174,7 @@ const startSidebarObserver = () => {
   sidebarObserver.observe(container, { childList: true });
 };
 
-// Watches ytd-watch-flexy[theater] — hides card in theater, restores on exit.
+// Watches ytd-watch-flexy[theater] — moves card between sidebar and #below on toggle.
 const startTheaterObserver = () => {
   theaterObserver?.disconnect();
   const flexy = document.querySelector('ytd-watch-flexy');
@@ -168,9 +182,11 @@ const startTheaterObserver = () => {
 
   theaterObserver = new MutationObserver(() => {
     if (isTheater()) {
-      removeCard();
+      // Move card from sidebar to #below.
+      sidebarObserver?.disconnect();
+      insertCardTheater();
     } else {
-      // Container may have re-rendered after theater exit — re-attach sidebar observer too.
+      // Move card back to sidebar — re-attach sidebar observer too.
       if (insertCard()) startSidebarObserver();
     }
   });
